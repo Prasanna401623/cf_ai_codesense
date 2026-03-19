@@ -35,18 +35,23 @@ export class ConversationMemory extends DurableObject {
 		return await this.ctx.storage.get<SessionSummary[]>('sessions-list') ?? []
 	}
 
-	async registerSession(sessionId: string): Promise<void> {
+	async upsertSession(sessionId: string, preview?: string): Promise<void> {
 		const sessions = await this.ctx.storage.get<SessionSummary[]>('sessions-list') ?? []
-		const exists = sessions.find(s => s.sessionId === sessionId)
-		if (!exists) {
+		const existing = sessions.find(s => s.sessionId === sessionId)
+		if (existing) {
+			existing.lastActivity = Date.now()
+			existing.messageCount += 2 // user + assistant
+			if (preview) existing.preview = preview
+		} else {
 			sessions.push({
 				sessionId,
 				createdAt: Date.now(),
 				lastActivity: Date.now(),
-				messageCount: 0,
+				messageCount: 2,
+				preview,
 			})
-			await this.ctx.storage.put('sessions-list', sessions)
 		}
+		await this.ctx.storage.put('sessions-list', sessions)
 	}
 
 	async clearSession(): Promise<void> {

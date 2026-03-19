@@ -47,7 +47,7 @@ export class ReviewWorkflow extends WorkflowEntrypoint<Env, ReviewPayload> {
 			return { content: result.response, detectedLanguage: processed.detectedLanguage }
 		})
 
-		// Step 4: Save both messages to Durable Object
+		// Step 4: Save both messages to Durable Object and update global registry
 		await step.do('save-to-memory', async () => {
 			const doId = this.env.CONVERSATION_MEMORY.idFromName(sessionId)
 			const stub = this.env.CONVERSATION_MEMORY.get(doId)
@@ -68,8 +68,13 @@ export class ReviewWorkflow extends WorkflowEntrypoint<Env, ReviewPayload> {
 
 			await stub.addMessage(userMessage)
 			await stub.addMessage(assistantMessage)
+
+			// Update global session registry (stored in a fixed DO instance)
+			const registryId = this.env.CONVERSATION_MEMORY.idFromName('__registry__')
+			const registry = this.env.CONVERSATION_MEMORY.get(registryId)
+			await registry.upsertSession(sessionId, processed.message.slice(0, 60))
 		})
 
-		return { response: aiResponse.content, sessionId, detectedLanguage: aiResponse.detectedLanguage }
+		return { reply: aiResponse.content, sessionId, detectedLanguage: aiResponse.detectedLanguage }
 	}
 }

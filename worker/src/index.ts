@@ -42,9 +42,12 @@ app.post('/api/review', async (c) => {
 	return c.json(status.output)
 })
 
-// Get all sessions for a user
+// Get all sessions from global registry
 app.get('/api/sessions', async (c) => {
-	return c.json({ sessions: [] })
+	const registryId = c.env.CONVERSATION_MEMORY.idFromName('__registry__')
+	const registry = c.env.CONVERSATION_MEMORY.get(registryId)
+	const sessions = await registry.getSessions()
+	return c.json({ sessions })
 })
 
 // Get history for one session

@@ -23,6 +23,7 @@ export interface SessionSummary {
 	createdAt: number
 	lastActivity: number
 	messageCount: number
+	preview?: string
 }
 
 export interface ReviewRequest {
