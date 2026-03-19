@@ -1,22 +1,30 @@
-import { useState, useCallback } from 'react'
-import { v4 as uuidv4 } from 'uuid'
+import { useState, useCallback } from 'react';
+import { v4 as uuidv4 } from 'uuid';
+
+const SESSION_KEY = 'codesense_session_id';
 
 function getOrCreateSessionId(): string {
-  const existing = localStorage.getItem('codesense-session-id')
-  if (existing) return existing
-  const newId = uuidv4()
-  localStorage.setItem('codesense-session-id', newId)
-  return newId
+  const stored = localStorage.getItem(SESSION_KEY);
+  if (stored) return stored;
+  const newId = uuidv4();
+  localStorage.setItem(SESSION_KEY, newId);
+  return newId;
 }
 
 export function useSession() {
-  const [sessionId, setSessionId] = useState<string>(getOrCreateSessionId)
+  const [sessionId, setSessionId] = useState<string>(getOrCreateSessionId);
 
   const createNewSession = useCallback(() => {
-    const newId = uuidv4()
-    localStorage.setItem('codesense-session-id', newId)
-    setSessionId(newId)
-  }, [])
+    const newId = uuidv4();
+    localStorage.setItem(SESSION_KEY, newId);
+    setSessionId(newId);
+    return newId;
+  }, []);
 
-  return { sessionId, createNewSession }
+  const switchSession = useCallback((id: string) => {
+    localStorage.setItem(SESSION_KEY, id);
+    setSessionId(id);
+  }, []);
+
+  return { sessionId, createNewSession, switchSession };
 }

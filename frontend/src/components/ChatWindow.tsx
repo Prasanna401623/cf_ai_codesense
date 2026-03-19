@@ -1,213 +1,205 @@
-import { useRef, useEffect, useState } from 'react'
-import { MessageBubble } from './MessageBubble'
-import { CodeEditor } from './CodeEditor'
-import type { Message } from '../types'
+import { useState, useRef, useEffect } from 'react';
+import { Send, Code, X, AlertCircle, Sparkles } from 'lucide-react';
+import MessageBubble from './MessageBubble';
+import CodeEditor from './CodeEditor';
+import type { Message } from '../types';
 
-interface Props {
-  messages: Message[]
-  isLoading: boolean
-  error: string | null
-  onSendMessage: (message: string, code?: string) => void
+interface ChatWindowProps {
+  messages: Message[];
+  isLoading: boolean;
+  error: string | null;
+  onSend: (message: string, code?: string) => void;
+  onClearError: () => void;
 }
 
-export function ChatWindow({ messages, isLoading, error, onSendMessage }: Props) {
-  const [input, setInput] = useState('')
-  const [code, setCode] = useState('')
-  const [showCodeEditor, setShowCodeEditor] = useState(false)
-  const bottomRef = useRef<HTMLDivElement>(null)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+function LoadingBubble() {
+  return (
+    <div className="flex gap-3">
+      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center shadow-sm">
+        <Sparkles className="w-4 h-4 text-white animate-pulse" />
+      </div>
+      <div className="bg-white border border-gray-200 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
+        <div className="flex items-center gap-1.5">
+          <div className="w-2 h-2 rounded-full bg-orange-400 dot-1" />
+          <div className="w-2 h-2 rounded-full bg-orange-400 dot-2" />
+          <div className="w-2 h-2 rounded-full bg-orange-400 dot-3" />
+        </div>
+      </div>
+    </div>
+  );
+}
 
+function EmptyState() {
+  return (
+    <div className="flex flex-col items-center justify-center h-full text-center px-8">
+      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center mb-4 shadow-lg">
+        <Sparkles className="w-8 h-8 text-white" />
+      </div>
+      <h2 className="text-xl font-semibold text-gray-800 mb-2">CodeSense</h2>
+      <p className="text-gray-500 text-sm max-w-sm leading-relaxed mb-6">
+        Your AI code review assistant. Paste your code, ask questions, and get structured feedback on bugs, security, performance, and best practices.
+      </p>
+      <div className="grid grid-cols-2 gap-2 w-full max-w-sm">
+        {[
+          { icon: '🐛', label: 'Find bugs' },
+          { icon: '🔒', label: 'Security review' },
+          { icon: '⚡', label: 'Performance tips' },
+          { icon: '✨', label: 'Best practices' },
+        ].map((item) => (
+          <div
+            key={item.label}
+            className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-white border border-gray-200 text-sm text-gray-600 shadow-sm"
+          >
+            <span>{item.icon}</span>
+            <span>{item.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function ChatWindow({ messages, isLoading, error, onSend, onClearError }: ChatWindowProps) {
+  const [input, setInput] = useState('');
+  const [code, setCode] = useState('');
+  const [showCodeEditor, setShowCodeEditor] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-scroll to bottom
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, isLoading])
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isLoading]);
 
-  function handleSend() {
-    if (!input.trim() && !code.trim()) return
-    onSendMessage(input.trim() || 'Please review this code.', code.trim() || undefined)
-    setInput('')
-    setCode('')
-    setShowCodeEditor(false)
-    if (textareaRef.current) textareaRef.current.style.height = '44px'
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
+  // Auto-resize textarea
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (ta) {
+      ta.style.height = 'auto';
+      ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
     }
-  }
+  }, [input]);
 
-  function handleInput(e: React.FormEvent<HTMLTextAreaElement>) {
-    const t = e.target as HTMLTextAreaElement
-    t.style.height = '44px'
-    t.style.height = Math.min(t.scrollHeight, 160) + 'px'
-    setInput(t.value)
-  }
+  const handleSend = () => {
+    const msg = input.trim();
+    const codeVal = code.trim();
+    if (!msg && !codeVal) return;
+    onSend(msg, codeVal || undefined);
+    setInput('');
+    setCode('');
+    setShowCodeEditor(false);
+  };
 
-  const canSend = (input.trim() || code.trim()) && !isLoading
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const toggleCode = () => {
+    setShowCodeEditor((v) => !v);
+    if (!showCodeEditor) setTimeout(() => textareaRef.current?.focus(), 50);
+  };
+
+  const canSend = (input.trim() || code.trim()) && !isLoading;
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden" style={{ background: '#0a0a0f' }}>
-
-      {/* Header */}
-      <div
-        className="flex items-center px-6 py-3 flex-shrink-0"
-        style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', background: '#0a0a0f' }}
-      >
-        <span className="text-sm font-medium" style={{ color: '#5a5a72' }}>
-          Code Review
-        </span>
-        <div className="ml-auto flex items-center gap-1.5">
-          <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#22c55e' }} />
-          <span className="text-xs" style={{ color: '#5a5a72' }}>Llama 3.3 · Workers AI</span>
-        </div>
+    <div className="flex flex-col flex-1 overflow-hidden">
+      {/* Message list */}
+      <div className="flex-1 overflow-y-auto flex flex-col">
+        {messages.length === 0 && !isLoading ? (
+          <div className="flex-1 flex items-center justify-center">
+            <EmptyState />
+          </div>
+        ) : (
+          <div className="px-6 py-6 w-full space-y-5">
+            {messages.map((m) => (
+              <MessageBubble key={m.id} message={m} />
+            ))}
+            {isLoading && <LoadingBubble />}
+            <div ref={bottomRef} />
+          </div>
+        )}
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto px-6 py-8">
-          {messages.length === 0 && (
-            <div className="flex flex-col items-center justify-center min-h-96 text-center">
-              <div
-                className="w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-bold text-white mb-5"
-                style={{ background: 'linear-gradient(135deg, #7c6aff, #a855f7)' }}
-              >
-                CS
-              </div>
-              <h2 className="text-lg font-semibold mb-2" style={{ color: '#f0f0fa' }}>
-                Ready to review your code
-              </h2>
-              <p className="text-sm leading-relaxed max-w-xs" style={{ color: '#5a5a72' }}>
-                Paste your code using the <span style={{ color: '#7c6aff' }}>&lt;/&gt;</span> button below, then ask a question or request a full review.
-              </p>
-              <div className="mt-8 grid grid-cols-2 gap-2 w-full max-w-sm">
-                {['Review this for bugs', 'Check security issues', 'Improve performance', 'Follow best practices'].map(s => (
-                  <button
-                    key={s}
-                    onClick={() => { setInput(s); textareaRef.current?.focus() }}
-                    className="px-3 py-2 rounded-lg text-xs text-left transition-all"
-                    style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: '#7070a0' }}
-                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(124,106,255,0.06)'; e.currentTarget.style.borderColor = 'rgba(124,106,255,0.2)'; e.currentTarget.style.color = '#9090c0' }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = '#7070a0' }}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {messages.map((msg, i) => (
-            <MessageBubble key={i} message={msg} />
-          ))}
-
-          {isLoading && (
-            <div className="flex gap-3 mb-6">
-              <div
-                className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5"
-                style={{ background: 'linear-gradient(135deg, #7c6aff, #a855f7)' }}
-              >
-                CS
-              </div>
-              <div className="mt-2">
-                <div className="flex gap-1.5 items-center">
-                  {[0, 150, 300].map(delay => (
-                    <div
-                      key={delay}
-                      className="w-1.5 h-1.5 rounded-full animate-bounce"
-                      style={{ background: '#3a3a52', animationDelay: `${delay}ms` }}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {error && (
-            <div
-              className="flex items-center gap-3 px-4 py-3 rounded-xl mb-4 text-sm"
-              style={{ background: 'rgba(248,113,113,0.06)', border: '1px solid rgba(248,113,113,0.15)', color: '#f87171' }}
+      {/* Error banner — only show when there are messages so it doesn't clutter the empty state */}
+      {error && messages.length > 0 && (
+        <div className="px-6 pb-3">
+          <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <span className="flex-1">{error}</span>
+            <button
+              onClick={onClearError}
+              className="text-xs underline text-red-600 hover:text-red-800"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-              </svg>
-              {error}
-              <button onClick={handleSend} className="ml-auto underline text-xs opacity-70 hover:opacity-100">
-                Retry
-              </button>
-            </div>
-          )}
-
-          <div ref={bottomRef} />
-        </div>
-      </div>
-
-      {/* Code editor */}
-      {showCodeEditor && (
-        <div
-          className="flex-shrink-0 mx-4 mb-2 rounded-xl overflow-hidden"
-          style={{ height: '180px', border: '1px solid rgba(124,106,255,0.2)', background: '#0d0d14' }}
-        >
-          <CodeEditor code={code} onChange={setCode} />
+              Dismiss
+            </button>
+          </div>
         </div>
       )}
 
-      {/* Input bar */}
-      <div className="flex-shrink-0 px-4 pb-4">
-        <div
-          className="flex items-end gap-2 rounded-2xl px-3 py-2"
-          style={{ background: '#13131c', border: '1px solid rgba(255,255,255,0.07)' }}
-        >
-          <button
-            onClick={() => setShowCodeEditor(v => !v)}
-            title="Attach code"
-            className="flex-shrink-0 p-2 rounded-lg text-xs transition-all mb-0.5"
-            style={{
-              color: showCodeEditor ? '#7c6aff' : '#5a5a72',
-              background: showCodeEditor ? 'rgba(124,106,255,0.12)' : 'transparent',
-            }}
-            onMouseEnter={e => { if (!showCodeEditor) e.currentTarget.style.color = '#9090b8' }}
-            onMouseLeave={e => { if (!showCodeEditor) e.currentTarget.style.color = '#5a5a72' }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-              <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
-            </svg>
-          </button>
+      {/* Input area */}
+      <div className="border-t border-gray-200 bg-white px-4 py-4">
+        <div className="space-y-3">
+          {/* Code editor (shown when toggled) */}
+          {showCodeEditor && (
+            <CodeEditor
+              value={code}
+              onChange={setCode}
+              onClear={() => { setCode(''); setShowCodeEditor(false); }}
+            />
+          )}
 
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={handleInput}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask a question or request a review…"
-            className="flex-1 bg-transparent text-sm resize-none outline-none py-2"
-            style={{
-              color: '#e0e0f0',
-              minHeight: '44px',
-              maxHeight: '160px',
-              lineHeight: '1.5',
-              height: '44px',
-            }}
-          />
+          {/* Message input row */}
+          <div className="flex items-end gap-2">
+            {/* Code toggle button */}
+            <button
+              onClick={toggleCode}
+              title={showCodeEditor ? 'Hide code editor' : 'Attach code'}
+              className={`flex-shrink-0 p-2.5 rounded-xl border transition-all ${
+                showCodeEditor
+                  ? 'bg-orange-50 border-orange-300 text-orange-600'
+                  : 'bg-gray-50 border-gray-200 text-gray-400 hover:text-orange-500 hover:border-orange-300 hover:bg-orange-50'
+              }`}
+            >
+              {showCodeEditor ? <X className="w-4 h-4" /> : <Code className="w-4 h-4" />}
+            </button>
 
-          <button
-            onClick={handleSend}
-            disabled={!canSend}
-            className="flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center mb-0.5 transition-all"
-            style={{
-              background: canSend ? 'linear-gradient(135deg, #7c6aff, #a855f7)' : 'rgba(255,255,255,0.06)',
-              color: canSend ? 'white' : '#3a3a52',
-            }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-            </svg>
-          </button>
+            {/* Message textarea */}
+            <div className="flex-1 relative">
+              <textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Ask about your code... (Enter to send, Shift+Enter for newline)"
+                rows={1}
+                className="w-full px-4 py-2.5 pr-12 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-orange-300 focus:ring-2 focus:ring-orange-100 outline-none text-sm text-gray-800 placeholder-gray-400 resize-none transition-all leading-relaxed"
+                style={{ minHeight: '44px' }}
+              />
+            </div>
+
+            {/* Send button */}
+            <button
+              onClick={handleSend}
+              disabled={!canSend}
+              className={`flex-shrink-0 p-2.5 rounded-xl transition-all ${
+                canSend
+                  ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-sm hover:from-orange-600 hover:to-orange-700 hover:shadow-md active:scale-95'
+                  : 'bg-gray-100 text-gray-300 cursor-not-allowed'
+              }`}
+              title="Send message"
+            >
+              <Send className="w-4 h-4" />
+            </button>
+          </div>
+
+          <p className="text-center text-[10px] text-gray-400">
+            CodeSense may make mistakes. Always verify critical code changes.
+          </p>
         </div>
-        <p className="text-center text-xs mt-2" style={{ color: '#2a2a38' }}>
-          Enter to send · Shift+Enter for new line
-        </p>
       </div>
     </div>
-  )
+  );
 }

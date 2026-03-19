@@ -1,19 +1,26 @@
 export interface Message {
-  role: 'user' | 'assistant'
-  content: string
-  timestamp: number
-  codeSnippet?: string
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: number;
+  codeSnippet?: string;
 }
 
 export interface Session {
-  sessionId: string
-  createdAt: number
-  lastActivity: number
-  messageCount: number
+  sessionId: string;
+  createdAt: number;
+  lastActivity: number;
+  messageCount: number;
+  preview?: string;
+}
+
+export interface ReviewRequest {
+  sessionId: string;
+  message: string;
+  code?: string;
 }
 
 export interface ReviewResponse {
-  response: string
-  sessionId: string
-  detectedLanguage?: string
+  reply: string;
+  sessionId: string;
 }

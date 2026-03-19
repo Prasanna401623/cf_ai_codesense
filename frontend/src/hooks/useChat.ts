@@ -1,53 +1,70 @@
-import { useState, useCallback, useEffect } from 'react'
-import type { Message } from '../types'
-import { reviewCode, getSessionHistory } from '../lib/api'
+import { useState, useCallback, useEffect } from 'react';
+import { v4 as uuidv4 } from 'uuid';
+import type { Message } from '../types';
+import { reviewCode, getSessionHistory } from '../lib/api';
 
 export function useChat(sessionId: string) {
-  const [messages, setMessages] = useState<Message[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Load history when sessionId changes
   useEffect(() => {
-    setMessages([])
-    getSessionHistory(sessionId).then(history => {
-      if (history.length > 0) setMessages(history)
-    })
-  }, [sessionId])
+    setMessages([]);
+    setError(null);
+    getSessionHistory(sessionId).then(setMessages).catch(() => {
+      // Silent fail — backend may not be running yet
+    });
+  }, [sessionId]);
 
-  const sendMessage = useCallback(async (message: string, code?: string) => {
-    if (!message.trim()) return
+  const sendMessage = useCallback(
+    async (userMessage: string, code?: string) => {
+      if (!userMessage.trim() && !code?.trim()) return;
 
-    const userMessage: Message = {
-      role: 'user',
-      content: code ? `${message}\n\`\`\`\n${code}\n\`\`\`` : message,
-      timestamp: Date.now(),
-      codeSnippet: code,
-    }
-
-    setMessages(prev => [...prev, userMessage])
-    setIsLoading(true)
-    setError(null)
-
-    try {
-      const result = await reviewCode(sessionId, message, code)
-      const assistantMessage: Message = {
-        role: 'assistant',
-        content: result.response,
+      const userMsg: Message = {
+        id: uuidv4(),
+        role: 'user',
+        content: userMessage,
         timestamp: Date.now(),
+        codeSnippet: code || undefined,
+      };
+
+      setMessages((prev) => [...prev, userMsg]);
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const response = await reviewCode({
+          sessionId,
+          message: userMessage,
+          code: code || undefined,
+        });
+
+        const assistantMsg: Message = {
+          id: uuidv4(),
+          role: 'assistant',
+          content: response.reply,
+          timestamp: Date.now(),
+        };
+
+        setMessages((prev) => [...prev, assistantMsg]);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Something went wrong');
+        // Remove the user message on error so they can retry
+        setMessages((prev) => prev.filter((m) => m.id !== userMsg.id));
+      } finally {
+        setIsLoading(false);
       }
-      setMessages(prev => [...prev, assistantMessage])
-    } catch {
-      setError('Something went wrong. Please try again.')
-    } finally {
-      setIsLoading(false)
-    }
-  }, [sessionId])
+    },
+    [sessionId]
+  );
 
   const clearMessages = useCallback(() => {
-    setMessages([])
-    setError(null)
-  }, [])
+    setMessages([]);
+    setError(null);
+  }, []);
 
-  return { messages, isLoading, error, sendMessage, clearMessages }
+  const clearError = useCallback(() => setError(null), []);
+
+  return { messages, isLoading, error, sendMessage, clearMessages, clearError };
 }
