@@ -1,6 +1,6 @@
 import type { ReviewRequest, ReviewResponse, Session, Message } from '../types';
 
-const BASE = '/api';
+const BASE = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : '/api';
 
 export async function reviewCode(req: ReviewRequest): Promise<ReviewResponse> {
   const res = await fetch(`${BASE}/review`, {
