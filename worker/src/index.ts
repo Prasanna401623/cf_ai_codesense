@@ -2,6 +2,21 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import type { ReviewRequest } from './types'
 
+// In-memory rate limiter: 10 review requests per minute per IP
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
+
+function isRateLimited(ip: string): boolean {
+	const now = Date.now()
+	const entry = rateLimitMap.get(ip)
+	if (!entry || now > entry.resetAt) {
+		rateLimitMap.set(ip, { count: 1, resetAt: now + 60_000 })
+		return false
+	}
+	if (entry.count >= 10) return true
+	entry.count++
+	return false
+}
+
 const app = new Hono<{ Bindings: Env }>()
 
 // Allow requests from the frontend
@@ -18,6 +33,11 @@ app.get('/api/health', (c) => {
 
 // Trigger a code review via Workflow
 app.post('/api/review', async (c) => {
+	const ip = c.req.header('cf-connecting-ip') ?? 'unknown'
+	if (isRateLimited(ip)) {
+		return c.json({ error: 'Too many requests. Please wait a minute.' }, 429)
+	}
+
 	const body = await c.req.json<ReviewRequest>()
 	const { sessionId, message, code } = body
 
