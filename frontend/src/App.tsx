@@ -19,7 +19,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50 overflow-hidden">
+    <div className="flex flex-col h-screen w-full bg-gray-50 overflow-hidden">
       <Header sessionId={sessionId} />
       <div className="flex flex-1 overflow-hidden">
         <SessionSidebar
