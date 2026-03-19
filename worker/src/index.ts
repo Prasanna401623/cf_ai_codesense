@@ -6,7 +6,7 @@ const app = new Hono<{ Bindings: Env }>()
 
 // Allow requests from the frontend
 app.use('*', cors({
-	origin: '*', // will restrict to Pages domain in production
+	origin: 'https://cf-ai-codesense.pages.dev',
 	allowMethods: ['GET', 'POST', 'DELETE'],
 	allowHeaders: ['Content-Type'],
 }))
